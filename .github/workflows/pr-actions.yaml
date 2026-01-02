@@ -23,6 +23,40 @@ jobs:
         with:
           app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
           private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_ORGANIZATION }}
+
+      # DEBUG: Remove this step after testing
+      - name: Debug - Test team membership API access
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          echo "=== Testing GitHub App Token Permissions ==="
+          echo "Organization: ${{ env.GH_ORGANIZATION }}"
+          echo "Team: ${{ env.GH_TEAM }}"
+          
+          echo ""
+          echo "=== 1. Check token scopes (from authenticated user) ==="
+          gh api /user 2>&1 || echo "Note: App tokens don't have a 'user' - this is expected to fail"
+          
+          echo ""
+          echo "=== 2. Check app installation info ==="
+          gh api /app/installations --jq '.[].account.login' 2>&1 || echo "Failed to list installations"
+          
+          echo ""
+          echo "=== 3. List organization teams ==="
+          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams" --jq '.[].slug' 2>&1 || echo "Failed to list teams - check org:read permission"
+          
+          echo ""
+          echo "=== 4. Get specific team info ==="
+          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams/${{ env.GH_TEAM }}" 2>&1 || echo "Failed to get team info"
+          
+          echo ""
+          echo "=== 5. List team members ==="
+          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams/${{ env.GH_TEAM }}/members" --jq '.[].login' 2>&1 || echo "Failed to list team members - check members:read permission"
+          
+          echo ""
+          echo "=== 6. Test membership check for a specific user (Zaperex) ==="
+          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams/${{ env.GH_TEAM }}/memberships/Zaperex" 2>&1 || echo "Failed to check membership"
 
   check_authorization:
     runs-on: ubuntu-latest
@@ -161,16 +195,24 @@ jobs:
               ? context.payload.pull_request.number 
               : context.issue.number;
             
+            const workflowRun = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: '${{ github.run_id }}'
+            });
+            
             let body = '';
             
             if (errorMessage) {
-              body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/test\` - Run integration tests`;
+              body = `[Workflow run](${workflowRun.data.html_url}) failed with error.\n\n`;
+              body += `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/test\` - Run integration tests`;
             } else if (isAuthorized !== 'true') {
+              body = `[Workflow run](${workflowRun.data.html_url}) requires authorization.\n\n`;
               if (isPR) {
-                body = `**Auto-publish skipped**: PR author \`${user}\` is not a member of the \`${process.env.GH_TEAM}\` team.\n\n`;
+                body += `**Auto-publish skipped**: PR author \`${user}\` is not a member of the \`${process.env.GH_TEAM}\` team.\n\n`;
                 body += `A team member can trigger a build by commenting \`/publish\` on this PR.\n\n`;
               } else {
-                body = `**Unauthorized**: User \`${user}\` is not authorized to run PR commands.\n\n`;
+                body += `**Unauthorized**: User \`${user}\` is not authorized to run PR commands.\n\n`;
                 body += `To use PR commands, you must be an active member of the \`${process.env.GH_TEAM}\` team in the \`${process.env.GH_ORGANIZATION}\` organization.\n\n`;
               }
               body += `Reason: ${reason}`;
