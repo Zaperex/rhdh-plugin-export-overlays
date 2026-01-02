@@ -6,8 +6,8 @@ on:
     types: [opened, synchronize, reopened]
 
 env:
-  GH_TEAM: rhdh
-  GH_ORGANIZATION: redhat-developer
+  GH_TEAM: test
+  GH_ORGANIZATION: Zaperex-Test-Org
 
 jobs:
   generate_token:
