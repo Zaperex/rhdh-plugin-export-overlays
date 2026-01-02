@@ -25,10 +25,8 @@ jobs:
           private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
           owner: ${{ env.GH_ORGANIZATION }}
 
-      # DEBUG: Remove this step after testing
-      - name: Debug - Test team membership API access
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      # DEBUG: Verify token was generated
+      - name: Debug - Verify token generation
         run: |
           echo "=== Testing GitHub App Token Permissions ==="
           echo "Organization: ${{ env.GH_ORGANIZATION }}"
@@ -57,6 +55,17 @@ jobs:
           echo ""
           echo "=== 6. Test membership check for a specific user (Zaperex) ==="
           gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams/${{ env.GH_TEAM }}/memberships/Zaperex" 2>&1 || echo "Failed to check membership"
+          
+          echo ""
+          echo "=== 7. Test token generation ==="
+          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+            echo "✓ Token was generated successfully"
+            echo "Token length: ${#TOKEN}"
+          else
+            echo "✗ Token is empty!"
+          fi
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
 
   check_authorization:
     runs-on: ubuntu-latest
@@ -99,6 +108,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || github.base_ref }}
+
+      # DEBUG: Check if token was received from generate_token job
+      - name: Debug - Verify token received
+        if: steps.check-internal.outputs.is_internal != 'true'
+        run: |
+          echo "=== Token Debug ==="
+          if [ -n "$TOKEN" ]; then
+            echo "✓ Token received from generate_token job"
+            echo "Token length: ${#TOKEN}"
+          else
+            echo "✗ Token is EMPTY!"
+            echo "This means the token didn't pass between jobs correctly"
+          fi
+        env:
+          TOKEN: ${{ needs.generate_token.outputs.token }}
 
       - name: Check team membership
         id: check-membership
