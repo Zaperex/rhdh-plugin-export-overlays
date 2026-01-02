@@ -10,68 +10,9 @@ env:
   GH_ORGANIZATION: Zaperex-Test-Org
 
 jobs:
-  generate_token:
-    runs-on: ubuntu-latest
-    name: Generate App Token
-    if: github.event.issue.pull_request || github.event_name == 'pull_request_target'
-    outputs:
-      token: ${{ steps.app-token.outputs.token }}
-    steps:
-      - name: Generate GitHub App Token
-        id: app-token
-        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
-        with:
-          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
-          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
-          owner: ${{ env.GH_ORGANIZATION }}
-
-      # DEBUG: Verify token was generated
-      - name: Debug - Verify token generation
-        run: |
-          echo "=== Testing GitHub App Token Permissions ==="
-          echo "Organization: ${{ env.GH_ORGANIZATION }}"
-          echo "Team: ${{ env.GH_TEAM }}"
-          
-          echo ""
-          echo "=== 1. Check token scopes (from authenticated user) ==="
-          gh api /user 2>&1 || echo "Note: App tokens don't have a 'user' - this is expected to fail"
-          
-          echo ""
-          echo "=== 2. Check app installation info ==="
-          gh api /app/installations --jq '.[].account.login' 2>&1 || echo "Failed to list installations"
-          
-          echo ""
-          echo "=== 3. List organization teams ==="
-          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams" --jq '.[].slug' 2>&1 || echo "Failed to list teams - check org:read permission"
-          
-          echo ""
-          echo "=== 4. Get specific team info ==="
-          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams/${{ env.GH_TEAM }}" 2>&1 || echo "Failed to get team info"
-          
-          echo ""
-          echo "=== 5. List team members ==="
-          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams/${{ env.GH_TEAM }}/members" --jq '.[].login' 2>&1 || echo "Failed to list team members - check members:read permission"
-          
-          echo ""
-          echo "=== 6. Test membership check for a specific user (Zaperex) ==="
-          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams/${{ env.GH_TEAM }}/memberships/Zaperex" 2>&1 || echo "Failed to check membership"
-          
-          echo ""
-          echo "=== 7. Test token generation ==="
-          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
-            echo "✓ Token was generated successfully"
-            echo "Token length: ${#TOKEN}"
-          else
-            echo "✗ Token is empty!"
-          fi
-        env:
-          TOKEN: ${{ steps.app-token.outputs.token }}
-
   check_authorization:
     runs-on: ubuntu-latest
     name: Verify Authorization
-    needs:
-      - generate_token
     if: github.event.issue.pull_request || github.event_name == 'pull_request_target'
     outputs:
       is_authorized: ${{ steps.check-internal.outputs.is_internal || steps.check-membership.outputs.is_authorized }}
@@ -109,20 +50,57 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || github.base_ref }}
 
-      # DEBUG: Check if token was received from generate_token job
-      - name: Debug - Verify token received
+      - name: Generate GitHub App Token
+        id: app-token
         if: steps.check-internal.outputs.is_internal != 'true'
-        run: |
-          echo "=== Token Debug ==="
-          if [ -n "$TOKEN" ]; then
-            echo "✓ Token received from generate_token job"
-            echo "Token length: ${#TOKEN}"
-          else
-            echo "✗ Token is EMPTY!"
-            echo "This means the token didn't pass between jobs correctly"
-          fi
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        with:
+          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
+          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_ORGANIZATION }}
+
+      # DEBUG: Verify token was generated and test API access
+      - name: Debug - Verify token and API access
+        if: steps.check-internal.outputs.is_internal != 'true'
         env:
-          TOKEN: ${{ needs.generate_token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          echo "=== Testing GitHub App Token Permissions ==="
+          echo "Organization: ${{ env.GH_ORGANIZATION }}"
+          echo "Team: ${{ env.GH_TEAM }}"
+          
+          echo ""
+          echo "=== 1. Check token scopes (from authenticated user) ==="
+          gh api /user 2>&1 || echo "Note: App tokens don't have a 'user' - this is expected to fail"
+          
+          echo ""
+          echo "=== 2. Check app installation info ==="
+          gh api /app/installations --jq '.[].account.login' 2>&1 || echo "Failed to list installations"
+          
+          echo ""
+          echo "=== 3. List organization teams ==="
+          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams" --jq '.[].slug' 2>&1 || echo "Failed to list teams - check org:read permission"
+          
+          echo ""
+          echo "=== 4. Get specific team info ==="
+          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams/${{ env.GH_TEAM }}" 2>&1 || echo "Failed to get team info"
+          
+          echo ""
+          echo "=== 5. List team members ==="
+          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams/${{ env.GH_TEAM }}/members" --jq '.[].login' 2>&1 || echo "Failed to list team members - check members:read permission"
+          
+          echo ""
+          echo "=== 6. Test membership check for a specific user (Zaperex) ==="
+          gh api "/orgs/${{ env.GH_ORGANIZATION }}/teams/${{ env.GH_TEAM }}/memberships/Zaperex" 2>&1 || echo "Failed to check membership"
+          
+          echo ""
+          echo "=== 7. Verify token generation ==="
+          if [ -n "$GH_TOKEN" ]; then
+            echo "✓ Token was generated successfully"
+            echo "Token length: ${#GH_TOKEN}"
+          else
+            echo "✗ Token is empty!"
+          fi
 
       - name: Check team membership
         id: check-membership
@@ -132,7 +110,7 @@ jobs:
           user: ${{ steps.determine-user.outputs.user }}
           organization: ${{ env.GH_ORGANIZATION }}
           team: ${{ env.GH_TEAM }}
-          github_token: ${{ needs.generate_token.outputs.token }}
+          github_token: ${{ steps.app-token.outputs.token }}
 
   parse:
     runs-on: ubuntu-latest
