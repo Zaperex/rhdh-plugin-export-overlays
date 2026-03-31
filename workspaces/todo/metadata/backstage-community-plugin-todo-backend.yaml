@@ -21,7 +21,7 @@ spec:
     role: backend-plugin
     supportedVersions: 1.45.3
   author: Backstage Community
-  support: community
+  support: tech-preview
   lifecycle: active
   partOf:
     - todo
