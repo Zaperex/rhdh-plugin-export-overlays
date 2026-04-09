@@ -334,8 +334,7 @@ jobs:
       packages: write
       id-token: write
       statuses: write
-      actions: write
-
+      
   updatePRWithCommit:
     name: Update commit on PR from automatic discovery
     needs:
