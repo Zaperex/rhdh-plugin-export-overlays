@@ -8,7 +8,7 @@
     "yarn": ">=3"
   },
   "packageManager": "yarn@4.12.0",
-  "description": "E2E tests for the plugins in the github workspace",
+  "description": "E2E tests for the pluginss in the github workspace",
   "scripts": {
     "test": "playwright test",
     "report": "playwright show-report",
