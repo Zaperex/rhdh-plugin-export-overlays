@@ -87,7 +87,10 @@ jobs:
           if git ls-remote --exit-code origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
             git fetch origin "$TARGET_BRANCH"
             git checkout "$TARGET_BRANCH"
-            git merge "origin/$SOURCE_BRANCH" --no-edit -X theirs || true
+            # Keep generated branch in sync with source branch content, but avoid
+            # creating workflow-file commits that require extra token permissions.
+            git checkout "origin/$SOURCE_BRANCH" -- . ':(exclude).github/workflows/**'
+            git reset
           else
             git checkout -b "$TARGET_BRANCH"
           fi
