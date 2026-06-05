@@ -89,8 +89,7 @@ jobs:
             git checkout "$TARGET_BRANCH"
             # Keep generated branch in sync with source branch content, but avoid
             # creating workflow-file commits that require extra token permissions.
-            git checkout "origin/$SOURCE_BRANCH" -- . ':(exclude).github/workflows/**'
-            git reset
+            git restore --source "origin/$SOURCE_BRANCH" --worktree -- . ':(exclude).github/workflows/**'
           else
             git checkout -b "$TARGET_BRANCH"
           fi
