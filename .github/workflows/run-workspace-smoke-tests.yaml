@@ -44,6 +44,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start RHDH with test plugins config
+        env:
+          TARGET_BRANCH: ${{ inputs.target-branch }}
         run: |
           set -euo pipefail
           ls -la ./artifacts/ || true
@@ -73,7 +75,6 @@ jobs:
           DOCKER_CMD="$DOCKER_CMD -e REGISTRY_AUTH_FILE=/root/.docker/config.json"
           
           # Derive image tag from target branch
-          TARGET_BRANCH="${{ inputs.target-branch }}"
           if [[ "$TARGET_BRANCH" =~ ^release-([0-9]+\.[0-9]+)$ ]]; then
             IMAGE_TAG="next-${BASH_REMATCH[1]}"
           else
