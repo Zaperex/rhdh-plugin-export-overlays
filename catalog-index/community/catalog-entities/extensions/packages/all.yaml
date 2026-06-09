@@ -5,7 +5,6 @@ metadata:
   name: packages
 spec:
   targets:
-    - ./backstage-community-plugin-3scale-backend.yaml
     - ./backstage-community-plugin-argocd-backend.yaml
     - ./backstage-community-plugin-argocd.yaml
     - ./backstage-community-plugin-azure-devops-backend.yaml
