@@ -970,7 +970,7 @@
         }
       },
       "package": "@backstage-community/plugin-quay-backend",
-      "version": "1.17.0",
+      "version": "1.14.0",
       "workspace": "quay",
       "overall": "pass"
     },
