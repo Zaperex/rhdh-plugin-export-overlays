@@ -457,13 +457,14 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend:bs_1.49.4__0.3.13"
         }
       },
       "package": "@backstage/plugin-signals-backend",
       "version": "0.3.13",
       "workspace": "backstage",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-signals": {
       "stages": {
@@ -1285,9 +1286,9 @@
   },
   "summary": {
     "total": 58,
-    "succeeded": 58,
-    "failed": 0,
+    "succeeded": 57,
+    "failed": 1,
     "outdated": 0
   },
-  "status": "success"
+  "status": "partial"
 }

@@ -34,7 +34,6 @@ spec:
     - ./backstage-plugin-notifications.yaml
     - ./backstage-plugin-scaffolder-backend-module-github.yaml
     - ./backstage-plugin-scaffolder-backend-module-gitlab.yaml
-    - ./backstage-plugin-signals-backend.yaml
     - ./backstage-plugin-signals.yaml
     - ./backstage-plugin-techdocs-backend.yaml
     - ./backstage-plugin-techdocs-module-addons-contrib.yaml
