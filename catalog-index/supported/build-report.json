@@ -19,7 +19,8 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr:bs_1.49.4__1.24.1"
         }
       },
       "package": "@backstage-community/plugin-acr",
@@ -897,11 +898,12 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.50.4",
-          "found_version": "1.49.3"
+          "found_version": "1.49.3",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki:bs_1.49.4__1.2.6"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:39d4dbf97840ffbfa31803891a19747a2dabded2461804e95f9bf9c06b27a9b7"
+          "digest": "sha256:68da280bd09309612c04cd602377678a654e564d118baca6ee72363a358660b2"
         },
         "dpdy": {
           "status": "pass"
@@ -921,11 +923,12 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.50.4",
-          "found_version": "1.49.3"
+          "found_version": "1.49.3",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.49.4__8.9.5"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0b1bcf3238691e9d6d3e5dd74fa0d841b0b36553a1d55872e418c4dbd616cae0"
+          "digest": "sha256:fd13914a29d8c97b6e21bbcf0a289df9e2bce9c296025bba679f09c95d551568"
         },
         "dpdy": {
           "status": "pass"
@@ -945,11 +948,12 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.50.4",
-          "found_version": "1.49.3"
+          "found_version": "1.49.3",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:bs_1.49.4__1.10.8"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:dd9a684e3c1907cce4f1d3d864e6090a109f6304895e69d0542b70de85f87822"
+          "digest": "sha256:656c957d577fb77e51d3fc06fa976baedc1fc365e89cd065441bd5eb9ca795a1"
         },
         "dpdy": {
           "status": "pass"
@@ -969,11 +973,12 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.50.4",
-          "found_version": "1.49.3"
+          "found_version": "1.49.3",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.49.4__5.7.13"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9e67c199d2d9390c13a30bac611108065a653ee6b9cf806597ddf807fc51a795"
+          "digest": "sha256:10ea6c40f178dac9e69e0e1b12b3b8d151474f84c5cff032adac453d001e2ce5"
         },
         "dpdy": {
           "status": "pass"
@@ -993,11 +998,12 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.50.4",
-          "found_version": "1.49.3"
+          "found_version": "1.49.3",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:bs_1.49.4__1.5.4"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:00138097364b8e8738b5dc7308438ae9b258ecc6c4931555a7ffe9ef652b1a09"
+          "digest": "sha256:c262a91a3dcc534e91363b070efffd6cb2a7da1c0b3024f2b88a3e1fea11f180"
         },
         "dpdy": {
           "status": "pass"
@@ -1027,7 +1033,8 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity:bs_1.49.4__0.11.1"
         }
       },
       "package": "@backstage-community/plugin-catalog-backend-module-pingidentity",

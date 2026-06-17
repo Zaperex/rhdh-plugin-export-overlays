@@ -5,10 +5,8 @@ metadata:
   name: packages
 spec:
   targets:
-    - ./backstage-community-plugin-acr.yaml
     - ./backstage-community-plugin-analytics-provider-segment.yaml
     - ./backstage-community-plugin-catalog-backend-module-keycloak.yaml
-    - ./backstage-community-plugin-catalog-backend-module-pingidentity.yaml
     - ./backstage-community-plugin-quay-backend.yaml
     - ./backstage-community-plugin-quay.yaml
     - ./backstage-community-plugin-rbac.yaml
