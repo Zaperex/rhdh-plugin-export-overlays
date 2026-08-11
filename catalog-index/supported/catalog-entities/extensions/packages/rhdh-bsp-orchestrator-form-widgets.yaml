@@ -17,9 +17,9 @@ metadata:
     - automation
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets"
-  # Tag: bs_1.52.0__1.11.3
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:72c06c70c1ff35bce082f064d9a873c500958ba2600ce8b9d93f83ed1612a71c"
-  version: 1.11.3
+  # Tag: bs_1.52.0__1.12.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:3e29652b03f0beeac851eeeac44161bdf5dcadf09f622d255713266e078f25b7"
+  version: 1.12.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.52.0
