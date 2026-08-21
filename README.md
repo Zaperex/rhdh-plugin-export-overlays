@@ -179,7 +179,7 @@ This creates `backstage.json` with the target version and updates all metadata O
 
 Workspaces with E2E tests collect Istanbul coverage from the instrumented plugin running inside RHDH. That coverage reaches this repository's Codecov project (one `e2e-<workspace>` flag per workspace) through a committed snapshot that is seeded to `main` — not by uploading directly from the PR e2e run (see below).
 
-Each `workspaces/<workspace>/coverage-anchors/` directory holds one empty, static file per deployed plugin, named after its scalprum name. Codecov only keeps coverage for paths that exist in this repository's git tree, but the plugins' real sources live upstream — so `scripts/remap-coverage.cjs` concatenates each plugin's coverage onto its anchor (line ranges shifted; the aggregated percentage is preserved exactly). Only the path's existence matters; file content and length are never validated.
+Each `workspaces/<workspace>/coverage-anchors/` directory holds empty, static files named after the webpack remotes a deployed plugin can publish under — one per plugin for each of the two builds that can serve it, since Scalprum and Module Federation name the remote differently and which one RHDH loads is not visible from the manifest. Codecov only keeps coverage for paths that exist in this repository's git tree, but the plugins' real sources live upstream — so `scripts/remap-coverage.cjs` concatenates each plugin's coverage onto its anchor (line ranges shifted; the aggregated percentage is preserved exactly). Only the path's existence matters; file content and length are never validated.
 
 These anchors never change with plugin versions. Regenerate them only when a new plugin gains a metadata `Package` entity:
 
@@ -222,7 +222,11 @@ The anchor keeps the percentage and loses the detail: you cannot click into a pl
 ./scripts/upload-coverage-upstream.sh <workspace> <coverage-dir-or-gcsweb-url> --dry-run
 ```
 
-`.github/workflows/publish-coverage-upstream.yaml` runs it from CI. It is `workflow_dispatch` only: the input is the run's **raw** coverage JSONs, which live in that Prow run's artifacts, and the artifact URL is only derivable from the job's own build id — so paste the `coverage/` listing URL from the run you want published. It cannot read `coverage-snapshots/<ws>.lcov`, which is already anchor-mapped down to a single entry.
+`.github/workflows/publish-coverage-upstream.yaml` runs it from CI, on every push to `main` that touches a workspace. It resolves the merged PR, reads the e2e bot's PASSING comment, and takes the artifact URL from the build-log link already in that comment — the same place `refresh-stale-coverage-snapshots.yaml` reads it from. Only a passing run publishes, and a run whose comment predates the merged commit is skipped rather than attributed to a tree it never measured. `workflow_dispatch` is kept for backfilling a specific run by hand.
+
+The input is the run's **raw** coverage JSONs, which live in that Prow run's artifacts. It cannot read `coverage-snapshots/<ws>.lcov`, which is already anchor-mapped down to a single entry.
+
+After each upload the script checks that the session it just sent is on the commit, through the uploads endpoint — which paginates. Codecov accepts an upload and returns before processing it, so "queued for processing" is a receipt rather than a result, and without this check a run could publish nothing and still report success. An unconfirmed upload is raised as a run annotation, never a failure: a slow processing queue is not a failed publish.
 
 Four things make this work, each of which is easy to get wrong:
 
