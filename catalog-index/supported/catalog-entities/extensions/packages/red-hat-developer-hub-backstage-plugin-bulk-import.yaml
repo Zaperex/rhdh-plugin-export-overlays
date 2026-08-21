@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-bulk-import'
   # Tag: bs_1.52.0__8.0.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import@sha256:830d40ccf1e7367cb8f43389591e297a3e7151cc093d10abfdcfb9b4f55702f9"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import@sha256:7efed8729f960033763ebf988ead54baddf4ea82988d16124f912f7314c6af9d"
   version: 8.0.0
   backstage:
     role: frontend-plugin
@@ -35,15 +35,16 @@ spec:
             red-hat-developer-hub.backstage-plugin-bulk-import:
               translationResources:
                 - importName: bulkImportTranslations
-                  module: Alpha
+                  module: Legacy
                   ref: bulkImportTranslationRef
               appIcons:
                 - name: bulkImportIcon
+                  module: Legacy
                   importName: BulkImportIcon
               dynamicRoutes:
                 - path: /bulk-import
                   importName: BulkImportPage
+                  module: Legacy
                   menuItem:
                     icon: bulkImportIcon
                     text: Bulk import
-                    textKey: menuItem.bulkImport
