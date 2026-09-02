@@ -1,6 +1,6 @@
 {
-  "source-repo": "https://github.com/Zaperex/rhdh-plugin-export-overlays/tree/main @ 7f44c4bd",
-  "build-date": "2026-08-21T19:55:05Z",
-  "backstage-version": "1.52.0",
+  "source-repo": "https://github.com/Zaperex/rhdh-plugin-export-overlays/tree/main @ 28cddab8",
+  "build-date": "2026-09-02T13:12:55Z",
+  "backstage-version": "1.54.4",
   "rhdh-version": "2.0"
 }
