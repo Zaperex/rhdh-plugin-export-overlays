@@ -12,6 +12,7 @@
  */
 
 import type { ExclusionRecord } from "./exclusions";
+import { isRecord } from "./util";
 import type {
   ConfigSchemaInfo,
   FrontendSystem,
@@ -46,8 +47,12 @@ import type {
  * 7: added `catalogIndex`, the provenance block catalog-index mode records.
  * 8: added `backend.bundles` and `backend.bundleErrors`, extending the configSchema
  *    check of 6 to backend plugins (RHIDP-16689).
+ * 9: added `frontend.configKeyMismatches` (RHIDP-16690).
+ * 10: added `catalogIndex.unresolved`, the declared refs the install CLI cannot take.
+ * 11: added `backendStart.hostPlugins`, `workspace.hosts` and
+ *     `frontend.configKeysNotApplicable` (RHIDP-17310, RHIDP-17311).
  */
-export const REPORT_SCHEMA_VERSION = 8;
+export const REPORT_SCHEMA_VERSION = 11;
 
 export type Status =
   | "pass"
@@ -62,6 +67,11 @@ export type BackendStartResult = {
   ok: boolean;
   skipped?: boolean;
   error?: string;
+  /**
+   * Plugin ids booted from a static copy because a loaded module attaches to them and
+   * nothing in the run provided them (see missingHostPluginIds). Not validated here.
+   */
+  hostPlugins?: string[];
 };
 
 /**
@@ -98,6 +108,31 @@ export type FrontendBundleInfo = {
 };
 
 /**
+ * A `dynamicPlugins.frontend.<key>` the workspace's metadata configures that no installed
+ * bundle answers to.
+ *
+ * RHDH matches the app-config key against the `name` in a bundle's
+ * `dist-scalprum/plugin-manifest.json`. When they disagree the plugin still loads, and
+ * every mount point configured under that key is ignored with nothing logged — the same
+ * user-visible outcome as RHDHBUGS-2180, reached a different way.
+ */
+export type ConfigKeyMismatch = {
+  /** The key exactly as the metadata writes it. */
+  key: string;
+  /** Metadata file that configures it, so a reader has somewhere to go. */
+  source: string;
+  /**
+   * The names the workspace's installed bundles DO report. Half of "naming both sides":
+   * without it the finding says what is wrong but not what was expected instead.
+   *
+   * `readonly` because every mismatch from one call shares one array instance — the list
+   * is identical for all of them and is built once. Nothing mutates it today; the type
+   * is what keeps that true.
+   */
+  bundleNames: readonly string[];
+};
+
+/**
  * Per-backend-plugin bundle record.
  *
  * There is no layout half here, deliberately. A backend bundle is required to `require()`
@@ -112,10 +147,8 @@ export type BackendBundleInfo = {
   version: string;
   /**
    * Read `configSchema.declared` first, and `configSchema.declaredError` beside it — same
-   * contract as the frontend half, and for the same reason. The path that can fail differs:
-   * RHDH's `schemaLocator` is keyed on the package's role, so it resolves to
-   * `dist/configSchema.json` for a backend package where a frontend one gets
-   * `dist-scalprum/configSchema.json`.
+   * contract as the frontend half, and for the same reason. Every supported dynamic
+   * plugin role uses RHDH's `dist/.config-schema.json` schema path.
    */
   configSchema: ConfigSchemaInfo;
 };
@@ -131,8 +164,17 @@ export type WorkspaceInfo = {
   skippedMetadata: string[];
   /** The `--support` filter applied, when one was. */
   support?: string;
-  /** Packages the filter left out — not a failure, but not validated either. */
+  /**
+   * Packages the filter left out — not a failure, and not validated, except the `hosts`
+   * among them, which are still counted here.
+   */
   outOfScope?: number;
+  /**
+   * Out-of-scope host plugins installed only so an in-scope module can boot. Counted
+   * in `refCount` because they are installed, and loaded and booted here like any other
+   * ref: a defect in a host fails this run as well as its own tier's.
+   */
+  hosts?: string[];
 };
 
 /**
@@ -141,6 +183,9 @@ export type WorkspaceInfo = {
  * `refCount` is what the install is measured against (see `installShortfall`);
  * `enabledInIndex` is recorded because it is the number people expect to see and it is
  * deliberately NOT the number this mode validates — see src/catalog-index.ts.
+ * `unresolved` are the refs the install CLI would have refused — missing from the
+ * registry, or naming no plugin — left out so one of them does not stop every other
+ * package from being validated.
  */
 export type CatalogIndexInfo = {
   source: string;
@@ -148,6 +193,13 @@ export type CatalogIndexInfo = {
   refCount: number;
   inImage: number;
   enabledInIndex: number;
+  unresolved: UnresolvedRef[];
+};
+
+/** A declared ref the install CLI would refuse, with the reason. */
+export type UnresolvedRef = {
+  ref: string;
+  error: string;
 };
 
 export type Report = {
@@ -180,6 +232,18 @@ export type Report = {
     valid: number;
     errors: PluginError[];
     bundles: FrontendBundleInfo[];
+    /**
+     * Workspace mode only: configured keys no installed bundle name matches. Absent in
+     * the other modes, which have no workspace metadata to read keys from — and absence
+     * means "not checked here", not "checked and clean".
+     */
+    configKeyMismatches?: ConfigKeyMismatch[];
+    /**
+     * Configured keys that name an MF-only bundle (rhdh-cli 2.1 export, no
+     * dist-scalprum/). RHDH's NFS app does not read them, so they are set aside rather
+     * than reported as mismatches (RHIDP-17311). Absent where the check did not run.
+     */
+    configKeysNotApplicable?: string[];
   };
   /** Tracked exclusions that fired this run, each with its ticket. */
   exclusions: ExclusionRecord[];
@@ -218,10 +282,6 @@ export type SweepSummary = {
    */
   status: "pass" | "fail";
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 /**
  * Narrow a parsed report, checking the schema version it declares.

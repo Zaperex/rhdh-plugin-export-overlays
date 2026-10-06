@@ -4,9 +4,9 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { after, test } from "node:test";
+import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -27,18 +27,7 @@ import type {
   SweepWorkspaceResult,
 } from "./report";
 import type { FrontendSystem, MfRemoteInfo } from "./loader";
-
-// Every mkdtempSync here would otherwise leak: the suite left 26 directories in
-// $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
-const TEMP_DIRS: string[] = [];
-function tempDir(prefix: string): string {
-  const dir = mkdtempSync(prefix);
-  TEMP_DIRS.push(dir);
-  return dir;
-}
-after(() => {
-  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true });
-});
+import { tempDir } from "./test-support";
 
 function report(overrides: Partial<Report> = {}): Report {
   return {
@@ -321,6 +310,31 @@ test("failureDetail prefers the most specific error the report holds", () => {
       }),
     ),
     "@s/backend: declares `configSchema` but the schema is gone",
+  );
+  // A config-key mismatch (RHIDP-16690) is the only fail-bundle cause with no plugin
+  // behind it, so it needs its own branch or the panel prints the bare status.
+  assert.match(
+    failureDetail(
+      result({
+        report: report({
+          frontend: {
+            total: 1,
+            valid: 1,
+            errors: [],
+            bundles: [],
+            configKeyMismatches: [
+              {
+                key: "scope.typo",
+                source: "a.yaml",
+                bundleNames: ["scope.real"],
+              },
+            ],
+          },
+          status: "fail-bundle",
+        }),
+      }),
+    ),
+    /dynamicPlugins\.frontend\.'scope\.typo' matches no installed bundle name/,
   );
 });
 

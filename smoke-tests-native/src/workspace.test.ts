@@ -4,15 +4,9 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { after, test } from "node:test";
+import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import {
-  mkdtempSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  rmSync,
-} from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parse } from "yaml";
@@ -24,18 +18,7 @@ import {
   readWorkspacePackages,
   writeDynamicPluginsConfig,
 } from "./workspace";
-
-// Every mkdtempSync here would otherwise leak: the suite left 26 directories in
-// $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
-const TEMP_DIRS: string[] = [];
-function tempDir(prefix: string): string {
-  const dir = mkdtempSync(prefix);
-  TEMP_DIRS.push(dir);
-  return dir;
-}
-after(() => {
-  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true });
-});
+import { tempDir } from "./test-support";
 
 /**
  * One repo root per test. A shared root plus fixtures created inside tests made these
@@ -183,6 +166,7 @@ test("readWorkspacePackages flattens the fields the sweep filters on", () => {
       support: "community",
       role: "backend-plugin",
       artifact: OCI_REF,
+      frontendConfigKeys: [],
     },
   ]);
 });
@@ -203,6 +187,7 @@ test("readWorkspacePackages falls back rather than yielding an empty package nam
       support: "",
       role: "",
       artifact: OCI_REF,
+      frontendConfigKeys: [],
     },
     {
       workspace: "odd",
@@ -211,6 +196,7 @@ test("readWorkspacePackages falls back rather than yielding an empty package nam
       support: "",
       role: "",
       artifact: "",
+      frontendConfigKeys: [],
     },
   ]);
 });
@@ -310,4 +296,233 @@ test("readWorkspacePackages sorts metadata files whatever order readdir returns"
     ]).map((p) => p.file),
     ["a.yaml", "m.yml", "z.yaml"],
   );
+});
+
+// --- dynamicPlugins.frontend keys (RHIDP-16690) -----------------------------------
+
+test("readWorkspacePackages collects dynamicPlugins.frontend keys across examples", () => {
+  // global-header's real shape: two keys, one of them RHDH's built-in namespace. Both
+  // are collected here — deciding which of them may go unmatched is the checker's job
+  // (findConfigKeyMismatches), not the reader's.
+  const root = makeWorkspace(freshRepo(), "hdr", {
+    "a.yaml": [
+      "spec:",
+      '  packageName: "@scope/hdr"',
+      `  dynamicArtifact: ${OCI_REF}`,
+      "  appConfigExamples:",
+      "    - content:",
+      "        dynamicPlugins:",
+      "          frontend:",
+      "            default.main-menu-items:",
+      "              menuItems: {}",
+      "    - content:",
+      "        dynamicPlugins:",
+      "          frontend:",
+      "            scope.hdr:",
+      "              mountPoints: []",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual(readWorkspacePackages(root, "hdr")[0].frontendConfigKeys, [
+    "default.main-menu-items",
+    "scope.hdr",
+  ]);
+});
+
+test("a malformed appConfigExamples yields no keys rather than throwing", () => {
+  // Repo YAML that no schema validates at rest. Every one of these shapes reached the
+  // reader during development; a cast instead of the checks would have published
+  // "0"/"1" (a list's indices) as plugin names, or thrown and failed the whole run for
+  // a package that simply configures nothing.
+  const root = makeWorkspace(freshRepo(), "odd", {
+    "a.yaml": `spec:\n  dynamicArtifact: ${OCI_REF}\n  appConfigExamples: "not-a-list"\n`,
+    "b.yaml": `spec:\n  dynamicArtifact: ${OCI_REF}\n  appConfigExamples:\n    - content: "a string"\n`,
+    "c.yaml": [
+      "spec:",
+      `  dynamicArtifact: ${OCI_REF}`,
+      "  appConfigExamples:",
+      "    - content:",
+      "        dynamicPlugins:",
+      "          frontend:",
+      "            - listed",
+      "",
+    ].join("\n"),
+  });
+  for (const pkg of readWorkspacePackages(root, "odd")) {
+    assert.deepEqual(
+      pkg.frontendConfigKeys,
+      [],
+      `${pkg.file} should yield no keys`,
+    );
+  }
+});
+
+test("collectWorkspaceRefs returns keys only for the packages it included", () => {
+  // The bug this shape exists to prevent: a --support sweep installs a subset, so a key
+  // belonging to a filtered-out package would match no installed bundle and be reported
+  // as a defect. The check would go red on exactly the runs that validate less.
+  const meta = (name: string, support: string, key: string) =>
+    [
+      "spec:",
+      `  packageName: "@scope/${name}"`,
+      `  dynamicArtifact: ${OCI_REF}`,
+      `  support: ${support}`,
+      "  appConfigExamples:",
+      "    - content:",
+      "        dynamicPlugins:",
+      "          frontend:",
+      `            ${key}: {}`,
+      "",
+    ].join("\n");
+  const root = makeWorkspace(freshRepo(), "mixed", {
+    "ga.yaml": meta("ga", "generally-available", "scope.ga"),
+    "comm.yaml": meta("comm", "community", "scope.comm"),
+  });
+  assert.deepEqual(
+    collectWorkspaceRefs(root, "mixed", { support: "community" })
+      .frontendConfigKeys,
+    [{ key: "scope.comm", source: "comm.yaml", packageName: "@scope/comm" }],
+  );
+  assert.deepEqual(
+    collectWorkspaceRefs(root, "mixed").frontendConfigKeys.map((k) => k.key),
+    ["scope.comm", "scope.ga"],
+  );
+});
+
+test("a package bundled in the RHDH image contributes no keys", () => {
+  // Its artifact is a local ./dynamic-plugins/dist path, so nothing is installed for it
+  // and its key has no bundle to match — the same false positive from the other end.
+  const root = makeWorkspace(freshRepo(), "local", {
+    "a.yaml": [
+      "spec:",
+      '  packageName: "@scope/bundled"',
+      "  dynamicArtifact: ./dynamic-plugins/dist/scope-bundled",
+      "  appConfigExamples:",
+      "    - content:",
+      "        dynamicPlugins:",
+      "          frontend:",
+      "            scope.bundled: {}",
+      "",
+    ].join("\n"),
+    "b.yaml": `spec:\n  packageName: "@scope/real"\n  dynamicArtifact: ${OCI_REF}\n`,
+  });
+  assert.deepEqual(collectWorkspaceRefs(root, "local").frontendConfigKeys, []);
+});
+
+// ---------------------------------------------------------------------------
+// Cross-tier hosts (RHIDP-17310)
+// ---------------------------------------------------------------------------
+function pkgYaml(name: string, role: string, support: string, image: string) {
+  return (
+    `spec:\n  packageName: "${name}"\n  support: ${support}\n` +
+    `  backstage:\n    role: ${role}\n` +
+    `  dynamicArtifact: oci://ghcr.io/example/${image}:tag\n`
+  );
+}
+
+function scorecardLike(root: string): string {
+  return makeWorkspace(root, "sc", {
+    "backend.yaml": pkgYaml(
+      "@x/plugin-sc-backend",
+      "backend-plugin",
+      "tech-preview",
+      "sc-backend",
+    ),
+    "module.yaml": pkgYaml(
+      "@x/plugin-sc-backend-module-catalog",
+      "backend-plugin-module",
+      "dev-preview",
+      "sc-module",
+    ),
+    "other.yaml": pkgYaml(
+      "@x/plugin-unrelated-backend",
+      "backend-plugin",
+      "tech-preview",
+      "unrelated",
+    ),
+  });
+}
+
+test("a module's host from another tier is installed alongside it", () => {
+  // scorecard's dev-preview modules attach to the tech-preview scorecard-backend;
+  // booted alone they fail on a missing extension point.
+  const root = scorecardLike(freshRepo());
+  const { refs, hosts, outOfScope } = collectWorkspaceRefs(root, "sc", {
+    support: "dev-preview",
+  });
+  assert.deepEqual(refs, [
+    "oci://ghcr.io/example/sc-module:tag",
+    "oci://ghcr.io/example/sc-backend:tag",
+  ]);
+  assert.deepEqual(hosts, ["@x/plugin-sc-backend"]);
+  // Still counted out of scope, though it is installed and booted in this run.
+  assert.equal(outOfScope, 2);
+});
+
+test("an unrelated backend plugin from another tier is not pulled in", () => {
+  const root = scorecardLike(freshRepo());
+  const { refs } = collectWorkspaceRefs(root, "sc", {
+    support: "dev-preview",
+  });
+  assert.equal(refs.includes("oci://ghcr.io/example/unrelated:tag"), false);
+});
+
+test("the host's own tier adds no hosts", () => {
+  const root = scorecardLike(freshRepo());
+  const { hosts } = collectWorkspaceRefs(root, "sc", {
+    support: "tech-preview",
+  });
+  assert.deepEqual(hosts, []);
+});
+
+test("an excluded host is not installed", () => {
+  const root = scorecardLike(freshRepo());
+  const exclusions = parseExclusions(
+    "# TODO(RHIDP-1): test\ninstall ^@x/plugin-sc-backend$\n",
+    "test-excludes.txt",
+  );
+  const { hosts, excluded } = collectWorkspaceRefs(root, "sc", {
+    support: "dev-preview",
+    installExcluded: excluderFor(exclusions, "install"),
+  });
+  assert.deepEqual(hosts, []);
+  // The module now boots without its host; the report must say why.
+  assert.deepEqual(
+    excluded.map((e) => e.packageName),
+    ["@x/plugin-sc-backend"],
+  );
+});
+
+test("an excluded module pulls in no host", () => {
+  // The module is not installed, so nothing in the run needs its host.
+  const root = makeWorkspace(freshRepo(), "sc2", {
+    "backend.yaml": pkgYaml(
+      "@x/plugin-sc-backend",
+      "backend-plugin",
+      "tech-preview",
+      "sc-backend",
+    ),
+    "module.yaml": pkgYaml(
+      "@x/plugin-sc-backend-module-catalog",
+      "backend-plugin-module",
+      "dev-preview",
+      "sc-module",
+    ),
+    "peer.yaml": pkgYaml(
+      "@x/plugin-peer-backend",
+      "backend-plugin",
+      "dev-preview",
+      "peer",
+    ),
+  });
+  const exclusions = parseExclusions(
+    "# TODO(RHIDP-1): test\ninstall ^@x/plugin-sc-backend-module-catalog$\n",
+    "test-excludes.txt",
+  );
+  const { refs, hosts } = collectWorkspaceRefs(root, "sc2", {
+    support: "dev-preview",
+    installExcluded: excluderFor(exclusions, "install"),
+  });
+  assert.deepEqual(refs, ["oci://ghcr.io/example/peer:tag"]);
+  assert.deepEqual(hosts, []);
 });
